@@ -5,6 +5,8 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
+	"log"
+	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
@@ -44,10 +46,10 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 	ipAddr := ctx.ClientIP()
 
 	date := time.Now()
-	createDate := date.Format("20060102150405")
-	orderID := date.Format("150405")
+	createDate := date.Format("20060102150405") // e.g., 20210801153333
+	orderID := date.Format("150405")            // e.g., 153333
 
-	amount := int(request.Amount * 100)
+	amount := int(request.Amount * 100) // Multiply by 100 to convert to smallest currency unit (e.g., 1806000 for 18,060.00)
 
 	locale := request.Locale
 	if locale == "" {
@@ -72,12 +74,14 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 		vnpParams.Set("vnp_BankCode", request.BankCode)
 	}
 
+	// Sort the parameters by their keys for signing
 	sortedKeys := make([]string, 0, len(vnpParams))
 	for key := range vnpParams {
 		sortedKeys = append(sortedKeys, key)
 	}
 	sort.Strings(sortedKeys)
 
+	// Build the query string without encoding
 	var queryStringBuilder strings.Builder
 	for _, key := range sortedKeys {
 		queryStringBuilder.WriteString(key)
@@ -85,16 +89,20 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 		queryStringBuilder.WriteString(vnpParams.Get(key))
 		queryStringBuilder.WriteString("&")
 	}
-
+	// Remove the trailing "&"
 	queryString := queryStringBuilder.String()
-	queryString = queryString[:len(queryString)-1]
+	queryString = strings.TrimSuffix(queryString, "&")
 
+	// Generate HMAC SHA512 signature using the secret key
 	h := hmac.New(sha512.New, []byte(VnpHashSecret))
 	h.Write([]byte(queryString))
 	signedData := hex.EncodeToString(h.Sum(nil))
+
+	// Set the signature in the query parameters
 	vnpParams.Set("vnp_SecureHash", signedData)
 
-	paymentURL := VnpURL + "?" + vnpParams.Encode()
+	// Generate the final payment URL
+	paymentURL := fmt.Sprintf("%s?%s", VnpURL, vnpParams.Encode())
 
 	return &CreatePayemntURLResponse{
 		RedirectURL: paymentURL,
@@ -128,9 +136,14 @@ func GetIPNUrl(ctx *gin.Context, request *GetIPNUrlRequest) *GetIPNUrlResponse {
 	h.Write([]byte(signData))
 	signed := hex.EncodeToString(h.Sum(nil))
 
+	finalUrl := fmt.Sprintf("%s?%s", urlAPI, query.Encode())
+	response, err := http.Get(finalUrl)
+	if err != nil {
+		log.Fatalf("Error making GET request: %v", err)
+	}
+	defer response.Body.Close()
+
 	if request.SecureHash == signed {
-		finalUrl := fmt.Sprintf("%s?%s", urlAPI, query.Encode())
-		fmt.Println(finalUrl)
 		return &GetIPNUrlResponse{
 			RspCode: "00",
 			Message: "success",
@@ -144,5 +157,40 @@ func GetIPNUrl(ctx *gin.Context, request *GetIPNUrlRequest) *GetIPNUrlResponse {
 }
 
 func GetVNPayReturn(ctx *gin.Context, request *GetVNPayReturnRequest) *GetVNPayReturnResponse {
-	return &GetVNPayReturnResponse{}
+	//urlAPI := fmt.Sprintf("https://%s/ReturnUrl", Domain)
+
+	query := url.Values{}
+	query.Set("vnp_Amount", strconv.Itoa(int(request.Amount)))
+	query.Set("vnp_BankCode", BankType)
+	query.Set("vnp_BankTranNo", request.BankTranNo)
+	query.Set("vnp_CardType", request.CardType)
+	query.Set("vnp_OrderInfo", request.OrderInfo)
+	query.Set("vnp_PayDate", request.PayDate)
+	query.Set("vnp_ResponseCode", request.ResponseCode)
+	query.Set("vnp_TmnCode", TmnCode)
+	query.Set("vnp_TransactionNo", request.TransactionNo)
+	query.Set("vnp_TransactionStatus", request.TransactionStatus)
+	query.Set("vnp_TxnRef", request.TxnRef)
+
+	sortedKeys := make([]string, 0, len(query))
+	for key := range query {
+		sortedKeys = append(sortedKeys, key)
+	}
+	sort.Strings(sortedKeys)
+	signData := strings.Join(sortedKeys, "&")
+
+	h := hmac.New(sha512.New, []byte(VnpHashSecret))
+	h.Write([]byte(signData))
+	signed := hex.EncodeToString(h.Sum(nil))
+
+	if request.SecureHash == signed {
+		return &GetVNPayReturnResponse{
+			RspCode: request.ResponseCode,
+			Message: "success",
+		}
+	}
+	return &GetVNPayReturnResponse{
+		RspCode: "97",
+		Message: "success",
+	}
 }
