@@ -1,11 +1,18 @@
 package api
 
+type CreateTokenRequest struct {
+	ClientID     string `json:"client_id"`
+	Username     string `json:"username"`
+	Password     string `json:"password"`
+	ClientSecret string `json:"client_secret"`
+}
+
 type CreatePaymentURLRequest struct {
-	OrderType   string  `json:"order_type,omitempty"`
-	Amount      float64 `json:"amount,omitempty"`
-	BankCode    string  `json:"bank_code,omitempty"`
-	Description string  `json:"description,omitempty"` // order info
-	Locale      string  `json:"locale,omitempty"`
+	OrderType   string  `json:"vnp_OrderType,omitempty"`
+	Amount      float64 `json:"vnp_Amount,omitempty"`
+	BankCode    string  `json:"vnp_BankCode,omitempty"`
+	Description string  `json:"vnp_OrderInfo,omitempty"` // order info
+	Locale      string  `json:"vnp_Locale,omitempty"`
 }
 
 type CreatePayemntURLResponse struct {
@@ -13,10 +20,18 @@ type CreatePayemntURLResponse struct {
 }
 
 type GetIPNUrlRequest struct {
-	SecureHash     string `json:"vpn_SecureHash"`
-	SecureHashType string `json:"vpn_SecureHashType,omitempty"`
-	TxnRef         string `json:"vnp_TxnRef"`
-	ResponseCode   string `json:"vnp_ResponseCode"`
+	Amount            int    `json:"vnp_Amount,omitempty"`
+	BankCode          string `json:"vnp_BankCode,omitempty"`
+	BankTranNo        string `json:"vnp_BankTranNo"`
+	CardType          string `json:"vnp_CardType"` // Value: ATM or QRCODE
+	OrderInfo         string `json:"vnp_OrderInfo,omitempty"`
+	PayDate           string `json:"vnp_PayDate,omitempty"`
+	ResponseCode      string `json:"vnp_ResponseCode"`
+	TmnCode           string `json:"vnp_TmnCode,omitempty"`
+	TransactionNo     string `json:"vnp_TransactionNo"`
+	TransactionStatus string `json:"vnp_TransactionStatus,omitempty"`
+	TxnRef            string `json:"vnp_TxnRef"`
+	SecureHash        string `json:"vpn_SecureHash"`
 }
 
 type GetIPNUrlResponse struct {
@@ -25,9 +40,17 @@ type GetIPNUrlResponse struct {
 }
 
 type GetVNPayReturnRequest struct {
-	SecureHash     string `json:"vpn_SecureHash"`
-	SecureHashType string `json:"vpn_SecureHashType,omitempty"`
-	ResponseCode   string `json:"vnp_ResponseCode"`
+	Amount            int    `json:"vnp_Amount,omitempty"`
+	BankCode          string `json:"vnp_BankCode,omitempty"`
+	BankTranNo        string `json:"vnp_BankTranNo"`
+	CardType          string `json:"vnp_CardType"`
+	OrderInfo         string `json:"vnp_OrderInfo,omitempty"`
+	PayDate           string `json:"vnp_PayDate,omitempty"`
+	ResponseCode      string `json:"vnp_ResponseCode"`
+	TransactionNo     string `json:"vnp_TransactionNo"`
+	TransactionStatus string `json:"vnp_TransactionStatus,omitempty"`
+	TxnRef            string `json:"vnp_TxnRef"`
+	SecureHash        string `json:"vpn_SecureHash"`
 }
 
 type GetVNPayReturnResponse struct {
