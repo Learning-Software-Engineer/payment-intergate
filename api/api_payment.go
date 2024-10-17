@@ -46,10 +46,10 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 	ipAddr := ctx.ClientIP()
 
 	date := time.Now()
-	createDate := date.Format("20060102150405") // e.g., 20210801153333
-	orderID := date.Format("150405")            // e.g., 153333
+	createDate := date.Format("20060102150405")
+	orderID := date.Format("150405")
 
-	amount := int(request.Amount * 100) // Multiply by 100 to convert to smallest currency unit (e.g., 1806000 for 18,060.00)
+	amount := int(request.Amount * 100)
 
 	locale := request.Locale
 	if locale == "" {
@@ -59,6 +59,7 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 	vnpParams := url.Values{}
 	vnpParams.Set("vnp_Amount", strconv.Itoa(amount))
 	vnpParams.Set("vnp_Command", "pay")
+	vnpParams.Set("vnp_TmnCode", TmnCode)
 	vnpParams.Set("vnp_CreateDate", createDate)
 	vnpParams.Set("vnp_CurrCode", "VND")
 	vnpParams.Set("vnp_IpAddr", ipAddr)
@@ -69,19 +70,19 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 	vnpParams.Set("vnp_TmnCode", VnpTmnCode)
 	vnpParams.Set("vnp_TxnRef", orderID)
 	vnpParams.Set("vnp_Version", "2.1.0")
+	vnpParams.Set("vnp_ExpireDate", "20241020014145")
+	vnpParams.Set("vnp_SecureHash", VnpHashSecret)
 
 	if request.BankCode != "" {
 		vnpParams.Set("vnp_BankCode", request.BankCode)
 	}
 
-	// Sort the parameters by their keys for signing
 	sortedKeys := make([]string, 0, len(vnpParams))
 	for key := range vnpParams {
 		sortedKeys = append(sortedKeys, key)
 	}
 	sort.Strings(sortedKeys)
 
-	// Build the query string without encoding
 	var queryStringBuilder strings.Builder
 	for _, key := range sortedKeys {
 		queryStringBuilder.WriteString(key)
@@ -89,19 +90,15 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 		queryStringBuilder.WriteString(vnpParams.Get(key))
 		queryStringBuilder.WriteString("&")
 	}
-	// Remove the trailing "&"
 	queryString := queryStringBuilder.String()
 	queryString = strings.TrimSuffix(queryString, "&")
 
-	// Generate HMAC SHA512 signature using the secret key
 	h := hmac.New(sha512.New, []byte(VnpHashSecret))
 	h.Write([]byte(queryString))
 	signedData := hex.EncodeToString(h.Sum(nil))
 
-	// Set the signature in the query parameters
-	vnpParams.Set("vnp_SecureHash", signedData)
+	vnpParams.Set("vnp_HashSecret", signedData)
 
-	// Generate the final payment URL
 	paymentURL := fmt.Sprintf("%s?%s", VnpURL, vnpParams.Encode())
 
 	return &CreatePayemntURLResponse{
