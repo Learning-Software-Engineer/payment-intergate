@@ -31,8 +31,8 @@ const (
 	McCode        = "20241017160637"
 	CheckSum      = "b04f2b1b90f98239be38b57429731eec"
 	Email         = "theflash28012002@gmail.com"
-	TmnCode       = "1OSFY9NV"
-	VnpHashSecret = "S67CZNUZFUSVXKV5XA84EZTJJI29OL16"
+	TmnCode       = "MA3RBGJO"
+	VnpHashSecret = "7ZWW8RTIATTYMRPLREHY6L59A3P571DF"
 
 	// Account test
 	BankAccountNumber = "9704198526191432198"
@@ -70,8 +70,6 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 	vnpParams.Set("vnp_TmnCode", VnpTmnCode)
 	vnpParams.Set("vnp_TxnRef", orderID)
 	vnpParams.Set("vnp_Version", "2.1.0")
-	vnpParams.Set("vnp_ExpireDate", "20241020014145")
-	vnpParams.Set("vnp_SecureHash", VnpHashSecret)
 
 	if request.BankCode != "" {
 		vnpParams.Set("vnp_BankCode", request.BankCode)
@@ -97,7 +95,8 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 	h.Write([]byte(queryString))
 	signedData := hex.EncodeToString(h.Sum(nil))
 
-	vnpParams.Set("vnp_HashSecret", signedData)
+	fmt.Println("signedData", signedData)
+	vnpParams.Set("vnp_SecureHash", signedData)
 
 	paymentURL := fmt.Sprintf("%s?%s", VnpURL, vnpParams.Encode())
 

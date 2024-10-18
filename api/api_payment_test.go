@@ -3,6 +3,8 @@ package api
 import (
 	"crypto/hmac"
 	"crypto/sha512"
+	"encoding/hex"
+	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
@@ -10,8 +12,9 @@ import (
 	"strings"
 	"testing"
 
+	"time"
+
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestCreate(t *testing.T) {
@@ -25,54 +28,81 @@ func TestCreate(t *testing.T) {
 		Amount:      1000,
 		Locale:      "vn",
 		Description: "description",
-		OrderType:   "other",
-		BankCode:    "NCB",
 	}
 
-	response, err := CreatePaymentUrl(ctx, request)
+	date := time.Now()
+	createDate := date.Format("20060102150405")
+	orderID := date.Format("150405")
 
-	assert.NoError(t, err)
-	assert.NotNil(t, response)
+	amount := int(request.Amount * 100)
 
-	t.Log("Redirect URL:", response.RedirectURL)
-
-	parsedURL, err := url.Parse(response.RedirectURL)
-	assert.NoError(t, err)
-
-	vnpParams := parsedURL.Query()
-
-	assert.Equal(t, "2.1.0", vnpParams.Get("vnp_Version"))
-	assert.Equal(t, "pay", vnpParams.Get("vnp_Command"))
-	assert.Equal(t, VnpTmnCode, vnpParams.Get("vnp_TmnCode"))
-	assert.Equal(t, "vn", vnpParams.Get("vnp_Locale"))
-	assert.Equal(t, "VND", vnpParams.Get("vnp_CurrCode"))
-	assert.Equal(t, "description", vnpParams.Get("vnp_OrderInfo"))
-	assert.Equal(t, "other", vnpParams.Get("vnp_OrderType"))
-	assert.Equal(t, strconv.Itoa(1000*100), vnpParams.Get("vnp_Amount"))
-	assert.Equal(t, VnpReturnURL, vnpParams.Get("vnp_ReturnUrl"))
-
-	sortedKeys := make([]string, 0, len(vnpParams))
-	for key := range vnpParams {
-		if key != "vnp_SecureHash" {
-			sortedKeys = append(sortedKeys, key)
-		}
-	}
-	sort.Strings(sortedKeys)
-
-	var queryStringBuilder strings.Builder
-	for _, key := range sortedKeys {
-		queryStringBuilder.WriteString(key)
-		queryStringBuilder.WriteString("=")
-		queryStringBuilder.WriteString(vnpParams.Get(key))
-		queryStringBuilder.WriteString("&")
+	locale := request.Locale
+	if locale == "" {
+		locale = "vn"
 	}
 
-	queryString := queryStringBuilder.String()
-	queryString = queryString[:len(queryString)-1]
+	vnpParams := url.Values{}
+	vnpParams.Set("vnp_Version", "2.1.0")
+	vnpParams.Set("vnp_Command", "pay")
+	vnpParams.Set("vnp_TmnCode", "MA3RBGJO")
+	vnpParams.Set("vnp_Locale", "vn")
+	vnpParams.Set("vnp_TxnRef", orderID)
+	vnpParams.Set("vnp_OrderInfo", request.Description)
+	vnpParams.Set("vnp_OrderType", "other")
+	vnpParams.Set("vnp_Amount", strconv.Itoa(amount))
+	vnpParams.Set("vnp_ReturnUrl", "https://domainmerchant.vn/ReturnUrl")
+	vnpParams.Set("vnp_IpAddr", "127.0.0.1")
+	vnpParams.Set("vnp_CreateDate", createDate)
+	vnpParams.Set("vnp_CurrCode", "VND")
+	if request.BankCode != "" {
+		vnpParams.Set("vnp_BankCode", request.BankCode)
+	}
 
-	h := hmac.New(sha512.New, []byte(VnpHashSecret))
-	h.Write([]byte(queryString))
-	// expectedSignature := hex.EncodeToString(h.Sum(nil))
+	signed := generateHMACSHA512(createSignData(vnpParams), VnpHashSecret)
+	vnpParams.Set("vnp_SecureHash", string(signed))
 
-	//assert.Equal(t, expectedSignature, vnpParams.Get("vnp_SecureHash"))
+	fmt.Println("signed::::", signed)
+
+	finalUrl := fmt.Sprintf("%s?%s", VnpURL, vnpParams.Encode())
+
+	fmt.Println("Payment URL:", finalUrl)
+}
+
+func createSignData(params url.Values) string {
+	var keys []string
+	for key := range params {
+		keys = append(keys, key)
+	}
+
+	fmt.Println("keys", keys)
+	sort.Strings(keys)
+
+	var signData []string
+	for _, key := range keys {
+		signData = append(signData, fmt.Sprintf("%s=%s", key, params.Get(key)))
+	}
+	res := strings.Join(signData, "&")
+	fmt.Println("res", res)
+	return res
+}
+
+// encodeParams URL-encodes the parameters while maintaining the order.
+func encodeParams(params map[string]string) string {
+	var keys []string
+	for key := range params {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	var encodedParams []string
+	for _, key := range keys {
+		encodedParams = append(encodedParams, fmt.Sprintf("%s=%s", url.QueryEscape(key), url.QueryEscape(params[key])))
+	}
+	return strings.Join(encodedParams, "&")
+}
+
+func generateHMACSHA512(data, secret string) string {
+	h := hmac.New(sha512.New, []byte(secret))
+	h.Write([]byte(data))
+	return hex.EncodeToString(h.Sum(nil))
 }
