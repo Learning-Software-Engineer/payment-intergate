@@ -57,3 +57,5 @@ type GetVNPayReturnResponse struct {
 	RspCode string `json:"rsp_code"`
 	Message string `json:"message"`
 }
+
+
