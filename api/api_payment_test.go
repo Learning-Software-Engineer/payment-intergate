@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +25,6 @@ func TestCreate(t *testing.T) {
 
 	request := &CreatePaymentURLRequest{
 		Amount:      1000,
-		Locale:      "vn",
 		Description: "description",
 	}
 
@@ -35,11 +33,6 @@ func TestCreate(t *testing.T) {
 	orderID := date.Format("150405")
 
 	amount := int(request.Amount * 100)
-
-	locale := request.Locale
-	if locale == "" {
-		locale = "vn"
-	}
 
 	vnpParams := url.Values{}
 	vnpParams.Set("vnp_Version", "2.1.0")
@@ -59,7 +52,7 @@ func TestCreate(t *testing.T) {
 	}
 
 	signed := generateHMACSHA512(createSignData(vnpParams), VnpHashSecret)
-	vnpParams.Set("vnp_SecureHash", string(signed))
+	vnpParams.Set("vnp_SecureHash", signed)
 
 	fmt.Println("signed::::", signed)
 
@@ -74,7 +67,6 @@ func createSignData(params url.Values) string {
 		keys = append(keys, key)
 	}
 
-	fmt.Println("keys", keys)
 	sort.Strings(keys)
 
 	var signData []string
@@ -86,7 +78,6 @@ func createSignData(params url.Values) string {
 	return res
 }
 
-// encodeParams URL-encodes the parameters while maintaining the order.
 func encodeParams(params map[string]string) string {
 	var keys []string
 	for key := range params {

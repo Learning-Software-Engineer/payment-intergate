@@ -51,11 +51,6 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 
 	amount := int(request.Amount * 100)
 
-	locale := request.Locale
-	if locale == "" {
-		locale = "vn"
-	}
-
 	vnpParams := url.Values{}
 	vnpParams.Set("vnp_Amount", strconv.Itoa(amount))
 	vnpParams.Set("vnp_Command", "pay")
@@ -63,7 +58,7 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 	vnpParams.Set("vnp_CreateDate", createDate)
 	vnpParams.Set("vnp_CurrCode", "VND")
 	vnpParams.Set("vnp_IpAddr", ipAddr)
-	vnpParams.Set("vnp_Locale", locale)
+	vnpParams.Set("vnp_Locale", "vn")
 	vnpParams.Set("vnp_OrderInfo", request.Description)
 	vnpParams.Set("vnp_OrderType", "other")
 	vnpParams.Set("vnp_ReturnUrl", VnpReturnURL)
@@ -95,7 +90,6 @@ func CreatePaymentUrl(ctx *gin.Context, request *CreatePaymentURLRequest) (*Crea
 	h.Write([]byte(queryString))
 	signedData := hex.EncodeToString(h.Sum(nil))
 
-	fmt.Println("signedData", signedData)
 	vnpParams.Set("vnp_SecureHash", signedData)
 
 	paymentURL := fmt.Sprintf("%s?%s", VnpURL, vnpParams.Encode())

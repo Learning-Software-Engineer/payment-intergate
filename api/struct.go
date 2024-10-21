@@ -8,11 +8,9 @@ type CreateTokenRequest struct {
 }
 
 type CreatePaymentURLRequest struct {
-	OrderType   string  `json:"vnp_OrderType,omitempty"`
 	Amount      float64 `json:"vnp_Amount,omitempty"`
 	BankCode    string  `json:"vnp_BankCode,omitempty"`
 	Description string  `json:"vnp_OrderInfo,omitempty"` // order info
-	Locale      string  `json:"vnp_Locale,omitempty"`
 }
 
 type CreatePayemntURLResponse struct {
@@ -57,5 +55,3 @@ type GetVNPayReturnResponse struct {
 	RspCode string `json:"rsp_code"`
 	Message string `json:"message"`
 }
-
-
